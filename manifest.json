@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "AutoDL GPU 自动抢机助手",
+  "version": "1.0.0",
+  "description": "自动监控 AutoDL GPU 状态，检测到可用时自动开机",
+  "permissions": [
+    "storage",
+    "notifications",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.autodl.com/*",
+    "https://sctapi.ftqq.com/*",
+    "https://api.emailjs.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.autodl.com/console/instance/list*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

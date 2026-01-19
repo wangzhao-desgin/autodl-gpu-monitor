@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoDL GPU 监控</title>
+  <style>
+    body {
+      width: 350px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+    }
+    
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    
+    .form-group {
+      margin-bottom: 12px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #startBtn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    #startBtn:hover {
+      background-color: #45a049;
+    }
+    
+    #startBtn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #stopBtn {
+      background-color: #f44336;
+      color: white;
+    }
+    
+    #stopBtn:hover {
+      background-color: #da190b;
+    }
+    
+    #stopBtn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    
+    .status-item {
+      margin-bottom: 6px;
+    }
+    
+    .status-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .status-label {
+      font-weight: 500;
+      color: #666;
+    }
+    
+    .status-value {
+      color: #333;
+    }
+    
+    .status-running {
+      color: #4CAF50;
+      font-weight: 600;
+    }
+    
+    .status-stopped {
+      color: #999;
+    }
+    
+    .info {
+      margin-top: 12px;
+      padding: 10px;
+      background-color: #e3f2fd;
+      border-left: 3px solid #2196F3;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #1976D2;
+    }
+  </style>
+</head>
+<body>
+  <h2>AutoDL GPU 监控</h2>
+  
+  <div class="form-group">
+    <label>选择实例（可多选）</label>
+    <select id="instanceSelect" multiple size="4" style="height: auto; min-height: 100px;">
+      <option value="">加载中...</option>
+    </select>
+    <div style="font-size: 12px; color: #666; margin-top: 4px;">按住 Ctrl/Cmd 可多选</div>
+  </div>
+  
+  <button id="refreshBtn" class="refresh-btn">🔄 刷新实例列表</button>
+  
+  <div id="instanceInfo" class="status" style="display: none; margin-bottom: 12px;">
+    <div class="status-item">
+      <span class="status-label">当前状态：</span>
+      <span class="status-value" id="currentStatus">-</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">GPU 状态：</span>
+      <span class="status-value" id="gpuStatus">-</span>
+    </div>
+  </div>
+  
+  <div class="form-group">
+    <label for="checkInterval">检查间隔（秒）</label>
+    <select id="checkInterval">
+      <option value="3">3 秒</option>
+      <option value="5" selected>5 秒</option>
+      <option value="10">10 秒</option>
+      <option value="15">15 秒</option>
+      <option value="30">30 秒</option>
+      <option value="60">60 秒</option>
+    </select>
+  </div>
+  
+  <div class="form-group">
+    <label>
+      <input type="checkbox" id="enableEmail" style="width: auto; margin-right: 8px;">
+      开机成功后发送微信通知（Server酱）
+    </label>
+  </div>
+  
+  <div id="emailConfig" style="display: none;">
+    <div class="form-group">
+      <label for="serverChanSendKey">Server酱 SendKey</label>
+      <input type="password" id="serverChanSendKey" placeholder="SCTxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400;">
+        <input type="checkbox" id="showServerChanSendKey" style="width: auto;">
+        显示
+      </label>
+    </div>
+  </div>
+
+  <div class="form-group" style="margin-top: 10px;">
+    <label>
+      <input type="checkbox" id="enableEmailNotify" style="width: auto; margin-right: 8px;">
+      开机成功后发送邮箱通知（EmailJS）
+    </label>
+  </div>
+
+  <div id="emailNotifyConfig" style="display: none;">
+    <div class="form-group">
+      <label for="emailRecipient">接收邮箱</label>
+      <input type="email" id="emailRecipient" placeholder="your@email.com">
+    </div>
+    <div class="form-group">
+      <label for="emailjsPublicKey">EmailJS Public Key</label>
+      <input type="password" id="emailjsPublicKey" placeholder="public_xxxxxxxxxxxxxxxx" autocomplete="off">
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400;">
+        <input type="checkbox" id="showEmailjsPublicKey" style="width: auto;">
+        显示
+      </label>
+    </div>
+    <div class="form-group">
+      <label for="emailjsServiceId">EmailJS Service ID</label>
+      <input type="password" id="emailjsServiceId" placeholder="service_xxxxxxxx" autocomplete="off">
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400;">
+        <input type="checkbox" id="showEmailjsServiceId" style="width: auto;">
+        显示
+      </label>
+    </div>
+    <div class="form-group">
+      <label for="emailjsTemplateId">EmailJS Template ID</label>
+      <input type="password" id="emailjsTemplateId" placeholder="template_xxxxxxxx" autocomplete="off">
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400;">
+        <input type="checkbox" id="showEmailjsTemplateId" style="width: auto;">
+        显示
+      </label>
+    </div>
+  </div>
+
+  <div class="form-group" style="margin-top: 10px;">
+    <button id="clearNotifySettingsBtn" type="button" style="width: 100%; background: #eee; color: #333; border: 1px solid #ddd;">清除通知配置</button>
+  </div>
+  
+  <div class="button-group">
+    <button id="startBtn">开始监控</button>
+    <button id="stopBtn" disabled>停止监控</button>
+  </div>
+  
+  <div class="status">
+    <div class="status-item">
+      <span class="status-label">状态：</span>
+      <span class="status-value" id="statusText">未启动</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">监控实例：</span>
+      <span class="status-value" id="monitoringInstance">-</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">检查间隔：</span>
+      <span class="status-value" id="intervalText">-</span>
+    </div>
+  </div>
+  
+  <div class="info">
+    💡 <strong>使用说明：</strong><br>
+    1. 打开 AutoDL 实例列表页面<br>
+    2. 设置目标实例名称和检查间隔<br>
+    3. 点击"开始监控"<br>
+    4. 插件会自动检测 GPU 并执行开机操作
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
